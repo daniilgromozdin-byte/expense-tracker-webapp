@@ -10,9 +10,22 @@ window.Telegram.WebApp.ready();
 window.Telegram.WebApp.expand();
 
 (async function init() {
-    const initData = window.Telegram.WebApp.initData;
+    const tg = window.Telegram && window.Telegram.WebApp;
+    const initData = tg && tg.initData;
     if (!initData) {
-        document.querySelector("main").innerHTML = '<div class="error">Открой через Telegram</div>';
+        const debug = {
+            hasWindowTelegram: !!window.Telegram,
+            hasWebApp: !!tg,
+            initDataLength: (tg && tg.initData && tg.initData.length) || 0,
+            platform: tg && tg.platform,
+            version: tg && tg.version,
+            colorScheme: tg && tg.colorScheme,
+            initDataUnsafe: tg && tg.initDataUnsafe,
+        };
+        document.querySelector("main").innerHTML =
+            '<div class="error">Открой через Telegram</div>' +
+            '<pre style="font-size:10px;text-align:left;padding:8px;background:#1a1a1a;color:#ccc;overflow:auto">' +
+            JSON.stringify(debug, null, 2) + '</pre>';
         return;
     }
     let resp;
