@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Траты</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        // Эти значения должны быть проставлены при деплое (вручную или билдом):
+        window.SUPABASE_URL = "https://snaaifzrfdqcotoxpwlx.supabase.co";
+        window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNuYWFpZnpyZmRxY290b3hwd2x4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjk2MTAsImV4cCI6MjA5MTkwNTYxMH0.MZZ8TZBT_BpprpFqEvEanUclesNibsjkAuAqbRT3EJw";
+        window.EDGE_URL = "https://snaaifzrfdqcotoxpwlx.supabase.co/functions/v1";
+    </script>
+</head>
+<body>
+    <header>
+        <div id="hello">Привет, ...</div>
+        <div id="period-switcher">
+            <button data-p="week">Неделя</button>
+            <button data-p="month" class="active">Месяц</button>
+            <button data-p="year">Год</button>
+            <button data-p="all">Всё время</button>
+        </div>
+    </header>
+    <nav id="tabs">
+        <button data-tab="overview" class="active">📊 Обзор</button>
+        <button data-tab="expenses">📋 Траты</button>
+        <button data-tab="insights">🤖 Советы</button>
+    </nav>
+    <main>
+        <section id="tab-overview" class="tab active"></section>
+        <section id="tab-expenses" class="tab"></section>
+        <section id="tab-insights" class="tab"></section>
+    </main>
+    <script src="overview.js"></script>
+    <script src="expenses.js"></script>
+    <script src="insights.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

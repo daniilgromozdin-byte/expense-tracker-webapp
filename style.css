@@ -1,0 +1,33 @@
+:root {
+    --bg: var(--tg-theme-bg-color, #fff);
+    --text: var(--tg-theme-text-color, #000);
+    --hint: var(--tg-theme-hint-color, #888);
+    --button: var(--tg-theme-button-color, #2481cc);
+    --button-text: var(--tg-theme-button-text-color, #fff);
+    --secondary-bg: var(--tg-theme-secondary-bg-color, #f5f5f5);
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); }
+header { padding: 12px 16px; }
+#hello { font-weight: 600; margin-bottom: 8px; }
+#period-switcher { display: flex; gap: 8px; }
+#period-switcher button { flex: 1; padding: 6px 10px; border: 1px solid var(--hint); background: transparent; color: var(--text); border-radius: 6px; cursor: pointer; }
+#period-switcher button.active { background: var(--button); color: var(--button-text); border-color: var(--button); }
+#tabs { display: flex; border-bottom: 1px solid var(--hint); }
+#tabs button { flex: 1; padding: 10px; border: none; background: transparent; color: var(--text); cursor: pointer; }
+#tabs button.active { border-bottom: 2px solid var(--button); font-weight: 600; }
+main { padding: 16px; }
+.tab { display: none; }
+.tab.active { display: block; }
+.big-number { font-size: 48px; font-weight: 700; text-align: center; margin: 24px 0 8px; }
+.big-number-label { text-align: center; color: var(--hint); margin-bottom: 24px; }
+.merchant-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--secondary-bg); }
+.expense-day { font-weight: 600; margin: 16px 0 8px; color: var(--hint); }
+.expense-row { padding: 8px 0; }
+.expense-row .merchant { font-weight: 500; }
+.expense-row .amount { float: right; }
+.expense-row .desc { color: var(--hint); font-size: 13px; }
+.search-input { width: 100%; padding: 10px; border: 1px solid var(--hint); border-radius: 6px; background: var(--secondary-bg); color: var(--text); margin-bottom: 12px; }
+.error { color: #c00; padding: 16px; text-align: center; }
+.loader { text-align: center; color: var(--hint); padding: 32px; }
+canvas { max-width: 100%; }
