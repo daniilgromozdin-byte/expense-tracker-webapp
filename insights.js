@@ -1,41 +1,64 @@
 async function renderInsights() {
     const root = document.getElementById("tab-insights");
-    root.innerHTML = '<div class="loader">Загрузка...</div>';
-    if (!state.supabase) return;
+    if (!state.supabase) { root.innerHTML = ""; return; }
+
+    root.innerHTML = `<div class="card skeleton" style="height:60px"></div><div class="card skeleton" style="height:200px"></div>`;
 
     const period = periodToInsightKey(state.period);
 
     const { data, error } = await state.supabase
         .from("expense_insights").select("*")
         .eq("period", period).limit(1);
-    if (error) { root.innerHTML = `<div class="error">${error.message}</div>`; return; }
+    if (error) {
+        root.innerHTML = `<div class="error-state card">${escapeHtml(error.message)}</div>`;
+        return;
+    }
 
     const cached = data && data[0];
     root.innerHTML = `
+        <button id="refresh-ins" class="btn-primary">Обновить советы</button>
         ${cached ? `
-            <div style="white-space:pre-wrap;line-height:1.5">${escapeHtml(cached.content)}</div>
-            <div style="color:var(--hint);margin-top:16px;font-size:12px">
-                Сгенерировано: ${new Date(cached.generated_at).toLocaleString("ru-RU")}
-            </div>
-        ` : '<div class="loader">Советов ещё нет</div>'}
-        <button id="refresh-ins" style="margin-top:24px;width:100%;padding:12px;background:var(--button);color:var(--button-text);border:none;border-radius:6px;cursor:pointer">
-            🔄 Обновить советы
-        </button>
+            <article class="card">
+                <div class="insights-text">${renderMarkdown(cached.content)}</div>
+                <div class="insights-meta">Обновлено ${new Date(cached.generated_at).toLocaleString("ru-RU")}</div>
+            </article>
+        ` : `
+            <article class="card">
+                <p class="insights-text-empty">Здесь появятся наблюдения после первых трат</p>
+            </article>
+        `}
     `;
 
-    document.getElementById("refresh-ins").onclick = async () => {
-        const btn = document.getElementById("refresh-ins");
-        btn.disabled = true; btn.textContent = "Запрашиваю у бота...";
+    const btn = document.getElementById("refresh-ins");
+    btn.onclick = async () => {
+        btn.disabled = true;
+        btn.textContent = "Готовлю советы…";
+        haptic("light");
+
+        if (DEV) {
+            await new Promise(r => setTimeout(r, 800));
+            btn.disabled = false;
+            btn.textContent = "Обновить советы";
+            renderInsights();
+            return;
+        }
+
         const { error: insErr } = await state.supabase
             .from("insights_requests")
             .insert({ user_id: state.user.id, period, status: "pending" });
-        if (insErr) { btn.textContent = "Ошибка: " + insErr.message; btn.disabled = false; return; }
+        if (insErr) {
+            btn.textContent = "Ошибка: " + insErr.message;
+            btn.disabled = false;
+            return;
+        }
         for (let i = 0; i < 30; i++) {
             await new Promise(r => setTimeout(r, 3000));
             const { data: fresh } = await state.supabase
                 .from("expense_insights").select("*")
                 .eq("period", period).limit(1);
             if (fresh && fresh[0] && new Date(fresh[0].generated_at) > new Date(cached?.generated_at || 0)) {
+                btn.disabled = false;
+                btn.textContent = "Обновить советы";
                 renderInsights();
                 return;
             }
@@ -43,6 +66,16 @@ async function renderInsights() {
         btn.textContent = "Не дождался ответа. Попробуй позже.";
         btn.disabled = false;
     };
+}
+
+function renderMarkdown(text) {
+    // Простой парсер: **bold**, *italic*, числа в span.num.
+    const escaped = escapeHtml(text);
+    return escaped
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.+?)\*/g, "<em>$1</em>")
+        .replace(/(\d[\d\s]*\s?₽)/g, '<span class="num">$1</span>')
+        .replace(/\n/g, "<br>");
 }
 
 function periodToInsightKey(period) {

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Траты</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -16,6 +19,7 @@
     </script>
 </head>
 <body>
+    <div id="top-progress"></div>
     <header>
         <div id="hello">Привет, ...</div>
         <div id="period-switcher">
@@ -26,9 +30,10 @@
         </div>
     </header>
     <nav id="tabs">
-        <button data-tab="overview" class="active">📊 Обзор</button>
-        <button data-tab="expenses">📋 Траты</button>
-        <button data-tab="insights">🤖 Советы</button>
+        <button data-tab="overview" class="active">Обзор</button>
+        <button data-tab="expenses">Траты</button>
+        <button data-tab="insights">Советы</button>
+        <span class="tab-indicator"></span>
     </nav>
     <main>
         <section id="tab-overview" class="tab active"></section>
