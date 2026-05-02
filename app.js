@@ -66,6 +66,7 @@ tg.onEvent("themeChanged", () => {
 const state = {
     period: "month",
     tab: "overview",
+    kindFilter: "expense",   // 'expense' | 'transfer' | 'income'
     supabase: null,
     user: null,
 };
@@ -140,7 +141,7 @@ function makeDevSupabase() {
         generated_at: new Date().toISOString(),
     }];
     function builder(table) {
-        let rows = table === "expenses" ? [...fakeExpenses]
+        let rows = table === "transactions" ? [...fakeExpenses]
                   : table === "expense_insights" ? [...fakeInsights]
                   : [];
         const api = {
@@ -152,6 +153,9 @@ function makeDevSupabase() {
             lte:    (col, val) => { rows = rows.filter(r => r[col] <= val); return api; },
             insert: () => Promise.resolve({ data: null, error: null }),
             delete: () => Promise.resolve({ data: null, error: null }),
+            update: (patch) => Promise.resolve({
+                data: rows.map(r => ({ ...r, ...patch })), error: null
+            }),
             then:   (resolve) => resolve({ data: rows, error: null }),
         };
         return api;
@@ -160,20 +164,52 @@ function makeDevSupabase() {
 }
 
 function generateFakeExpenses() {
-    const merchants = ["Пятёрочка","Магнит","Яндекс Такси","Wildberries","Старбакс","Перекрёсток","ВкусВилл","OZON","Аптека","Книжный"];
+    const expense_merchants = ["Пятёрочка","Магнит","Яндекс Такси","Wildberries","Старбакс","Перекрёсток","ВкусВилл","OZON","Аптека","Книжный"];
+    const transfer_merchants = ["Иван И.", "Мария К.", "Tinkoff → Альфа", "Сергей Н."];
+    const income_merchants = ["Зарплата ООО Ромашка", "Премия", "Возврат WB"];
     const today = new Date();
     const out = [];
-    for (let i = 0; i < 60; i++) {
+    let id = 0;
+    for (let i = 0; i < 50; i++) {
         const d = new Date(today); d.setDate(today.getDate() - Math.floor(Math.random() * 30));
-        const m = merchants[Math.floor(Math.random() * merchants.length)];
+        const m = expense_merchants[Math.floor(Math.random() * expense_merchants.length)];
         out.push({
-            id: "fake-" + i,
+            id: "fake-" + (id++),
             merchant: m,
             amount: Math.floor(50 + Math.random() * 3000),
             currency: "RUB",
             description: Math.random() < 0.4 ? "молоко, хлеб" : null,
             spent_at: d.toISOString(),
             created_at: d.toISOString(),
+            kind: "expense",
+        });
+    }
+    for (let i = 0; i < 8; i++) {
+        const d = new Date(today); d.setDate(today.getDate() - Math.floor(Math.random() * 30));
+        const m = transfer_merchants[Math.floor(Math.random() * transfer_merchants.length)];
+        out.push({
+            id: "fake-" + (id++),
+            merchant: m,
+            amount: Math.floor(1000 + Math.random() * 50000),
+            currency: "RUB",
+            description: null,
+            spent_at: d.toISOString(),
+            created_at: d.toISOString(),
+            kind: "transfer",
+        });
+    }
+    for (let i = 0; i < 2; i++) {
+        const d = new Date(today); d.setDate(today.getDate() - Math.floor(Math.random() * 30));
+        const m = income_merchants[Math.floor(Math.random() * income_merchants.length)];
+        out.push({
+            id: "fake-" + (id++),
+            merchant: m,
+            amount: Math.floor(50000 + Math.random() * 100000),
+            currency: "RUB",
+            description: null,
+            spent_at: d.toISOString(),
+            created_at: d.toISOString(),
+            kind: "income",
         });
     }
     return out;
@@ -219,6 +255,12 @@ async function renderActive() {
     } finally {
         stopProgress();
     }
+}
+
+function switchToTabWithKind(tabName, kind) {
+    state.kindFilter = kind;
+    const btn = document.querySelector(`#tabs button[data-tab="${tabName}"]`);
+    if (btn) btn.click();
 }
 
 function periodToRange(period) {

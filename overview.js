@@ -8,18 +8,38 @@ async function renderOverview() {
     root.innerHTML = renderSkeletonOverview();
 
     const [start, end] = periodToRange(state.period);
-    let q = state.supabase.from("expenses").select("amount,merchant,spent_at");
-    if (start) q = q.gte("spent_at", start);
-    if (end)   q = q.lte("spent_at", end);
-    const { data, error } = await q;
-    if (error) { root.innerHTML = `<div class="error-state card">${escapeHtml(error.message)}</div>`; return; }
 
-    if (!data || data.length === 0) { root.innerHTML = renderEmptyOverview(); return; }
+    async function fetchKind(kind) {
+        let q = state.supabase.from("transactions").select("amount,merchant,spent_at,kind").eq("kind", kind);
+        if (start) q = q.gte("spent_at", start);
+        if (end)   q = q.lte("spent_at", end);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data || [];
+    }
 
-    const total = data.reduce((s, r) => s + Number(r.amount), 0);
+    let expenseRows, transferRows, incomeRows;
+    try {
+        [expenseRows, transferRows, incomeRows] = await Promise.all([
+            fetchKind("expense"), fetchKind("transfer"), fetchKind("income"),
+        ]);
+    } catch (error) {
+        root.innerHTML = `<div class="error-state card">${escapeHtml(error.message || String(error))}</div>`;
+        return;
+    }
+
+    if (expenseRows.length === 0 && transferRows.length === 0 && incomeRows.length === 0) {
+        root.innerHTML = renderEmptyOverview();
+        return;
+    }
+
+    const total = expenseRows.reduce((s, r) => s + Number(r.amount), 0);
+    const transferTotal = transferRows.reduce((s, r) => s + Number(r.amount), 0);
+    const incomeTotal = incomeRows.reduce((s, r) => s + Number(r.amount), 0);
+
     const byDay = {};
     const byMerch = {};
-    for (const r of data) {
+    for (const r of expenseRows) {
         const day = r.spent_at.slice(0, 10);
         byDay[day] = (byDay[day] || 0) + Number(r.amount);
         byMerch[r.merchant] = (byMerch[r.merchant] || 0) + Number(r.amount);
@@ -34,8 +54,20 @@ async function renderOverview() {
         <section class="card big-number-card">
             <div class="big-number-label">${periodLabel(state.period)}</div>
             <div class="big-number">${formatNumber(total)}<span class="currency">₽</span></div>
-            <div class="big-number-delta">${data.length} ${pluralize(data.length, ["покупка","покупки","покупок"])}</div>
+            <div class="big-number-delta">${expenseRows.length} ${pluralize(expenseRows.length, ["покупка","покупки","покупок"])}</div>
         </section>
+        <div class="summary-row">
+            <section class="card summary-card" data-kind="income">
+                <div class="summary-label">Доход</div>
+                <div class="summary-amount">${formatNumber(incomeTotal)} ₽</div>
+                <div class="summary-count">${incomeRows.length} ${pluralize(incomeRows.length, ["операция","операции","операций"])}</div>
+            </section>
+            <section class="card summary-card" data-kind="transfer">
+                <div class="summary-label">Переводы</div>
+                <div class="summary-amount">${formatNumber(transferTotal)} ₽</div>
+                <div class="summary-count">${transferRows.length} ${pluralize(transferRows.length, ["операция","операции","операций"])}</div>
+            </section>
+        </div>
         <section class="card chart-card">
             <h3 class="card-title">Траты по дням</h3>
             <div class="chart-canvas-wrap"><canvas id="chart-by-day"></canvas></div>
@@ -63,6 +95,13 @@ async function renderOverview() {
             </div>
         </section>
     `;
+
+    document.querySelectorAll(".summary-card").forEach((el) => {
+        el.onclick = () => {
+            haptic("light");
+            switchToTabWithKind("expenses", el.dataset.kind);
+        };
+    });
 
     if (overviewChartByDay) overviewChartByDay.destroy();
     overviewChartByDay = new Chart(document.getElementById("chart-by-day"), {
