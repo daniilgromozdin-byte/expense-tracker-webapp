@@ -68,6 +68,7 @@ async function renderExpenses() {
                 <div class="day-label">${formatDayLabel(d)}</div>
                 ${byDay[d].map(r => `
                     <div class="expense-row" data-id="${r.id}">
+                        <button class="row-menu-btn" type="button" aria-label="Действия">⋮</button>
                         <div class="merchant">${escapeHtml(r.merchant)}</div>
                         ${r.description ? `<div class="desc">${escapeHtml(r.description)}</div>` : ""}
                         <div class="amount">${formatNumber(Number(r.amount))} ₽</div>
@@ -75,115 +76,92 @@ async function renderExpenses() {
                 `).join("")}
             </div>
         `).join("");
-        listEl.querySelectorAll(".expense-row").forEach(bindSwipe);
+        listEl.querySelectorAll(".expense-row").forEach(bindMenu);
     }
 
-    function bindSwipe(row) {
-        let startX = null, dx = 0, direction = null;
-        const inner = row;
+    function bindMenu(row) {
+        const btn = row.querySelector(".row-menu-btn");
+        if (!btn) return;
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            openActionSheet(row);
+        };
+    }
 
-        const bg = document.createElement("div");
-        bg.className = "swipe-bg";
-        bg.textContent = "Удалить";
-        row.appendChild(bg);
+    function openActionSheet(row) {
+        haptic("light");
+        const id = row.dataset.id;
 
-        const actions = document.createElement("div");
-        actions.className = "swipe-actions";
-        actions.innerHTML = `
-            <button class="kind-expense"  data-kind="expense">Трата</button>
-            <button class="kind-transfer" data-kind="transfer">Перевод</button>
-            <button class="kind-income"   data-kind="income">Доход</button>
+        const backdrop = document.createElement("div");
+        backdrop.className = "action-sheet-backdrop";
+
+        const sheet = document.createElement("div");
+        sheet.className = "action-sheet";
+        sheet.innerHTML = `
+            <button class="action-sheet-btn kind-expense"  data-action="kind:expense">Трата</button>
+            <button class="action-sheet-btn kind-transfer" data-action="kind:transfer">Перевод</button>
+            <button class="action-sheet-btn kind-income"   data-action="kind:income">Доход</button>
+            <div class="action-sheet-divider"></div>
+            <button class="action-sheet-btn delete" data-action="delete">Удалить</button>
+            <button class="action-sheet-btn cancel" data-action="cancel">Отмена</button>
         `;
-        row.appendChild(actions);
 
-        actions.querySelectorAll("button").forEach((btn) => {
-            btn.onclick = (e) => {
-                e.stopPropagation();
-                reclassify(row, row.dataset.id, btn.dataset.kind);
+        document.body.appendChild(backdrop);
+        document.body.appendChild(sheet);
+
+        requestAnimationFrame(() => {
+            backdrop.classList.add("show");
+            sheet.classList.add("show");
+        });
+
+        function close() {
+            backdrop.classList.remove("show");
+            sheet.classList.remove("show");
+            setTimeout(() => {
+                backdrop.remove();
+                sheet.remove();
+            }, 250);
+        }
+
+        backdrop.onclick = close;
+
+        sheet.querySelectorAll("button").forEach((b) => {
+            b.onclick = async () => {
+                const action = b.dataset.action;
+                if (action === "cancel") {
+                    close();
+                    return;
+                }
+                if (action === "delete") {
+                    close();
+                    await deleteRow(row, id);
+                    return;
+                }
+                const newKind = action.split(":")[1];
+                close();
+                await reclassifyRow(row, id, newKind);
             };
         });
-
-        row.addEventListener("pointerdown", (e) => {
-            if (e.pointerType === "mouse" && e.button !== 0) return;
-            if (e.target.closest(".swipe-actions")) return;
-            startX = e.clientX;
-            dx = 0;
-            direction = null;
-            row.setPointerCapture(e.pointerId);
-            row.classList.add("swiping");
-        });
-        row.addEventListener("pointermove", (e) => {
-            if (startX === null) return;
-            dx = e.clientX - startX;
-            if (direction === null && Math.abs(dx) > 6) direction = dx > 0 ? "right" : "left";
-            if (direction === "left") {
-                const limit = -row.offsetWidth * 0.4;
-                const clamped = Math.max(limit, Math.min(0, dx));
-                inner.style.transform = `translateX(${clamped}px)`;
-                bg.style.transform = `translateX(${100 + (clamped / row.offsetWidth) * 100}%)`;
-            } else if (direction === "right") {
-                const limit = row.offsetWidth * 0.6;
-                const clamped = Math.min(limit, Math.max(0, dx));
-                inner.style.transform = `translateX(${clamped}px)`;
-                actions.style.transform = `translateX(${-100 + (clamped / row.offsetWidth) * 100}%)`;
-            }
-        });
-        row.addEventListener("pointerup", async (e) => {
-            if (startX === null) return;
-            startX = null;
-            row.classList.remove("swiping");
-            if (direction === "left") {
-                const threshold = -row.offsetWidth * 0.4;
-                if (dx <= threshold) {
-                    haptic("medium");
-                    row.classList.add("removing");
-                    inner.style.transform = "";
-                    bg.style.transform = "";
-                    await new Promise(r => setTimeout(r, 220));
-                    const id = row.dataset.id;
-                    if (!DEV) {
-                        const { error } = await state.supabase.from("transactions").delete().eq("id", id);
-                        if (error) { alert(error.message); return; }
-                    }
-                    const idx = data.findIndex(r => String(r.id) === String(id));
-                    if (idx !== -1) data.splice(idx, 1);
-                    row.remove();
-                } else {
-                    inner.style.transform = "";
-                    bg.style.transform = "";
-                }
-            } else if (direction === "right") {
-                const threshold = row.offsetWidth * 0.4;
-                if (dx >= threshold) {
-                    haptic("light");
-                    row.classList.add("reclass-revealed");
-                    inner.style.transform = "";
-                    actions.style.transform = "";
-                } else {
-                    inner.style.transform = "";
-                    actions.style.transform = "";
-                }
-            }
-        });
-        row.addEventListener("pointercancel", () => {
-            startX = null;
-            direction = null;
-            row.classList.remove("swiping");
-            inner.style.transform = "";
-            bg.style.transform = "";
-            actions.style.transform = "";
-        });
     }
 
-    async function reclassify(row, id, newKind) {
+    async function deleteRow(row, id) {
+        if (!DEV) {
+            const { error } = await state.supabase.from("transactions").delete().eq("id", id);
+            if (error) { alert(error.message); return; }
+        }
+        haptic("medium");
+        row.classList.add("removing");
+        await new Promise(r => setTimeout(r, 220));
+        const idx = data.findIndex(r => String(r.id) === String(id));
+        if (idx !== -1) data.splice(idx, 1);
+        row.remove();
+    }
+
+    async function reclassifyRow(row, id, newKind) {
         if (!DEV) {
             const { error } = await state.supabase
                 .from("transactions").update({ kind: newKind }).eq("id", id);
-            if (error) {
-                alert(error.message);
-                row.classList.remove("reclass-revealed");
-                return;
-            }
+            if (error) { alert(error.message); return; }
         }
         haptic("medium");
 
@@ -194,7 +172,6 @@ async function renderExpenses() {
             if (idx !== -1) data.splice(idx, 1);
             row.remove();
         } else {
-            row.classList.remove("reclass-revealed");
             row.classList.add("reclassified");
             const t = data.find(r => String(r.id) === String(id));
             if (t) t.kind = newKind;
